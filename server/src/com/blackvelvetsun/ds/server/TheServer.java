@@ -4,25 +4,28 @@ import com.blackvelvetsun.ds.network.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class TheServer implements TCPConnectionListener {
 
+    //private final List<User> users = new ArrayList<>();
     private static int id = 0;
     private final Map<Integer, TCPConnection> temp = new HashMap<>();
-    private final Map<String, TCPConnection> connections = new HashMap<>();
+    private final Map<String, User> users = new HashMap<>();
 
     public static void main(String[] args) {
         new TheServer();
     }
 
     private TheServer() {
-        System.out.println("Сервер запущен...");
-        try(ServerSocket serverSocket = new ServerSocket(8181)){
+        try(ServerSocket serverSocket = new ServerSocket(8180)){
+            System.out.println("Сервер запущен...");
             System.out.println(InetAddress.getLocalHost());
             while(true) {
                 try {
@@ -53,19 +56,24 @@ public class TheServer implements TCPConnectionListener {
 
     public void visitLoginPack(LoginPack loginPack){
         TCPConnection connection = temp.remove(loginPack.getIdConnection());
-        connections.put(loginPack.getSenderLogin(), connection);
-        System.out.println("+" + loginPack.getSenderLogin());
+        User user = new User(connection, loginPack.getPublicKey());
+        users.put(loginPack.getSenderLogin(), user);
+        //мб трай кэч
+    }
 
+    public String selectPublicKey(String login){
+        return users.get(login).getPublicKey(); //!!!to be continued
     }
 
     public void visitMessage(Message message){
-        TCPConnection receiver = connections.get(message.getReceiverLogin());
-        receiver.send(message);
+        User receiver = users.get(message.getReceiverLogin());
+        TCPConnection receiverConnection = receiver.getConnection();
+        receiverConnection.send(message);
     }
 
     @Override
     public synchronized void onDisconnect(TCPConnection tcpConnection) {
-        connections.remove(tcpConnection);
+        //users.remove(tcpConnection);
     }
 
 }

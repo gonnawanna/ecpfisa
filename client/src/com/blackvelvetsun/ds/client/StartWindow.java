@@ -5,6 +5,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
 
 public class StartWindow extends JFrame implements ActionListener {
 
@@ -44,7 +45,7 @@ public class StartWindow extends JFrame implements ActionListener {
         try {
             new AClient(serverIP, login);
             setVisible(false);
-        } catch (IOException e1) {
+        } catch (IOException | NoSuchAlgorithmException e1) {
             e1.printStackTrace();
         }
     }
