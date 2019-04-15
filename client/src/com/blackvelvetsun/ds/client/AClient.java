@@ -94,8 +94,8 @@ public class AClient extends JFrame implements ActionListener, TCPConnectionList
         String msg = fieldMsg.getText();
         if(msg.equals("") || receiver.equals("")) return;
         try {
-            String encryptedMsg = encrypt(msg);
-            Message pack = new Message(login,fieldReceiver.getText(), encryptedMsg);
+            byte[] ecp = encrypt(msg);
+            Message pack = new Message(login, fieldReceiver.getText(), msg, ecp);
             connection.send(pack);
         } catch (NoSuchProviderException | NoSuchAlgorithmException | InvalidKeyException |
                 SignatureException | IOException e1) {
@@ -105,15 +105,15 @@ public class AClient extends JFrame implements ActionListener, TCPConnectionList
         fieldReceiver.setText(null);
     }
 
-    public String  encrypt(String text) throws NoSuchProviderException, NoSuchAlgorithmException,
+    public byte[] encrypt(String text) throws NoSuchProviderException, NoSuchAlgorithmException,
             InvalidKeyException, SignatureException, IOException {
         Signature signature = Signature.getInstance("SHA1withRSA");
         signature.initSign(privateKey);
         signature.update(text.getBytes());
         byte[] realSignature = signature.sign();
-        String result = new String(realSignature, StandardCharsets.UTF_8);
-        System.out.println(result);
-        return result;
+        //String result = new String(realSignature, "Cp280");
+        //System.out.println(result);
+        return realSignature;
         /*Signature signature = Signature.getInstance("SHA1withRSA");
             return new SignedObject(text, privateKey, signature).toString();*/
 
@@ -146,7 +146,7 @@ public class AClient extends JFrame implements ActionListener, TCPConnectionList
 
     public void visitLoginPack(LoginPack loginPack){
         loginPack.setSenderLogin(login);
-        loginPack.setPublicKey(publicKey.toString());
+        loginPack.setPublicKey(publicKey);
         connection.send(loginPack);
     }
 

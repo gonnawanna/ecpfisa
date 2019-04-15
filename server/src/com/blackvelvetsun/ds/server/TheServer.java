@@ -2,11 +2,10 @@ package com.blackvelvetsun.ds.server;
 
 import com.blackvelvetsun.ds.network.*;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.Serializable;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
+import java.security.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -61,12 +60,23 @@ public class TheServer implements TCPConnectionListener {
         //мб трай кэч
     }
 
-    public String selectPublicKey(String login){
+    public PublicKey selectPublicKey(String login){
         return users.get(login).getPublicKey(); //!!!to be continued
     }
 
     public void visitMessage(Message message){
         User receiver = users.get(message.getReceiverLogin());
+        User sender = users.get(message.getSenderLogin());
+        Signature signature = null;
+        try {
+            signature = Signature.getInstance("SHA1withRSA");
+            signature.initVerify(sender.getPublicKey());
+            signature.update(message.getMessage().getBytes());
+            boolean verified = signature.verify(message.getEcp());
+            System.out.println(verified);
+        } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
+            e.printStackTrace();
+        }
         TCPConnection receiverConnection = receiver.getConnection();
         receiverConnection.send(message);
     }

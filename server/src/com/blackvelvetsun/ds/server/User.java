@@ -2,12 +2,14 @@ package com.blackvelvetsun.ds.server;
 
 import com.blackvelvetsun.ds.network.TCPConnection;
 
+import java.security.PublicKey;
+
 public class User {
 
     private TCPConnection connection;
-    private String publicKey;
+    private PublicKey publicKey;
 
-    public User(TCPConnection connection, String publicKey) {
+    public User(TCPConnection connection, PublicKey publicKey) {
         this.connection = connection;
         this.publicKey = publicKey;
     }
@@ -16,7 +18,7 @@ public class User {
         return connection;
     }
 
-    public String getPublicKey() {
+    public PublicKey getPublicKey() {
         return publicKey;
     }
 }

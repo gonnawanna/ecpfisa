@@ -9,7 +9,7 @@ public class LoginPack extends DeliveryPack {
 
     private final int idConnection;
     private TCPConnection tcpConnection;
-    private String publicKey;
+    private PublicKey publicKey;
 
     public LoginPack(int id) {
         this.idConnection = id;
@@ -23,11 +23,11 @@ public class LoginPack extends DeliveryPack {
         return idConnection;
     }
 
-    public String getPublicKey() {
+    public PublicKey getPublicKey() {
         return publicKey;
     }
 
-    public void setPublicKey(String publicKey) {
+    public void setPublicKey(PublicKey publicKey) {
         this.publicKey = publicKey;
     }
 
