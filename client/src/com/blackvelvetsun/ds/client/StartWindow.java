@@ -17,7 +17,7 @@ public class StartWindow extends JFrame implements ActionListener {
     private JButton buttonConnect = new JButton("Подключиться");
 
     public StartWindow(){
-        setTitle("Connect");
+        setTitle("Подключение");
         setSize(200,200);
         setLocationRelativeTo(null);
         setAlwaysOnTop(true);

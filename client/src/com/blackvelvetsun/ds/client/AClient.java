@@ -6,16 +6,12 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.nio.charset.StandardCharsets;
+import java.io.UnsupportedEncodingException;
 import java.security.*;
 
 public class AClient extends JFrame implements ActionListener, TCPConnectionListener {
 
-    private String IP;
     private static final int PORT = 8180;
     private TCPConnection connection;
     private String login;
@@ -23,36 +19,19 @@ public class AClient extends JFrame implements ActionListener, TCPConnectionList
     private PrivateKey privateKey;
     private PublicKey publicKey;
 
-    private static final int WIDTH = 600;
-    private static final int HEIGHT = 400;
-
     private final JTextArea chat = new JTextArea();
-    private final JTextArea name = new JTextArea();
-    JPanel panel = new JPanel();
-    JLabel label1 = new JLabel("Enter Text:");
     private final TextField fieldMsg = new TextField(20);
-    JLabel label2 = new JLabel("Кому:");
-    JButton sendButton = new JButton("Отправить");
     private final TextField fieldReceiver = new TextField(10);
-    private final TextField fieldLogin = new TextField(10);
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                new StartWindow();
-            }
-        });
-
+        SwingUtilities.invokeLater(StartWindow::new);
     }
 
     public AClient(String IP, String login) throws IOException, NoSuchAlgorithmException {
         this.login = login;
-        generateKeys();//мб в блок инициализации
+        generateKeys();
         drawFace();
-
         connection = new TCPConnection(this, IP, PORT);
-
     }
 
     private void generateKeys() throws NoSuchAlgorithmException {
@@ -64,16 +43,20 @@ public class AClient extends JFrame implements ActionListener, TCPConnectionList
     }
 
     private void drawFace(){
+        JLabel labelLogin = new JLabel();
+        JPanel panel = new JPanel();
+        JLabel label1 = new JLabel("Enter Text:");
+        JLabel label2 = new JLabel("Кому:");
+        JButton sendButton = new JButton("Отправить");
+
+        setTitle("Клиент");
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        setSize(WIDTH,HEIGHT);
+        setSize(600,400);
         setLocationRelativeTo(null);
         setAlwaysOnTop(true);
 
-        fieldLogin.setText(login);
-        fieldLogin.setEditable(false);
-
+        labelLogin.setText(login);
         chat.setLineWrap(true);
-
         panel.add(label1); // Components Added using Flow Layout
         panel.add(fieldMsg);
         panel.add(label2);
@@ -81,56 +64,35 @@ public class AClient extends JFrame implements ActionListener, TCPConnectionList
         panel.add(sendButton);
 
         //Adding Components to the frame.
-        add(fieldLogin, BorderLayout.NORTH);
+        add(labelLogin, BorderLayout.NORTH);
         add(panel, BorderLayout.SOUTH);
         add(chat, BorderLayout.CENTER);
         sendButton.addActionListener(this);
         setVisible(true);
     }
 
-
     public void actionPerformed(ActionEvent e){
         String receiver = fieldReceiver.getText();
         String msg = fieldMsg.getText();
         if(msg.equals("") || receiver.equals("")) return;
         try {
-            byte[] ecp = encrypt(msg);
-            Message pack = new Message(login, fieldReceiver.getText(), msg, ecp);
+            byte[] ecp = createEcp(msg);
+            Message pack = new Message(login, receiver, msg, ecp, publicKey);
             connection.send(pack);
-        } catch (NoSuchProviderException | NoSuchAlgorithmException | InvalidKeyException |
-                SignatureException | IOException e1) {
+        } catch (NoSuchAlgorithmException | InvalidKeyException |
+                SignatureException e1) {
             e1.printStackTrace();
         }
         fieldMsg.setText(null);
         fieldReceiver.setText(null);
     }
 
-    public byte[] encrypt(String text) throws NoSuchProviderException, NoSuchAlgorithmException,
-            InvalidKeyException, SignatureException, IOException {
+    private byte[] createEcp(String text) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException{
         Signature signature = Signature.getInstance("SHA1withRSA");
         signature.initSign(privateKey);
         signature.update(text.getBytes());
-        byte[] realSignature = signature.sign();
-        //String result = new String(realSignature, "Cp280");
-        //System.out.println(result);
-        return realSignature;
-        /*Signature signature = Signature.getInstance("SHA1withRSA");
-            return new SignedObject(text, privateKey, signature).toString();*/
-
-
-        /*return realSignature.
-        Signature signature = Signature.getInstance(privateKey.getAlgorithm());
-        return new SignedObject(msg, key, signature);
-        SignedObject signedObject = createSignedObject(text, privateKey);
-        // Проверка подписанного объекта
-        boolean verified = verifySignedObject(signedObject, publicKey);
-        System.out.println("Проверка подписи объекта : " + verified);
-
-        // Извлечение подписанного объекта
-        String unsignedObject = (String) signedObject.getObject();*/
-
+        return signature.sign();
     }
-
 
     @Override
     public void onConnect(TCPConnection tcpConnection) {
@@ -139,25 +101,47 @@ public class AClient extends JFrame implements ActionListener, TCPConnectionList
 
     @Override
     public void onReceiving(TCPConnection tcpConnection, Object message) {
-        DeliveryPack msg = (DeliveryPack) message; //как это работает
+        DeliveryPack msg = (DeliveryPack) message;
         msg.accept(this);
-
     }
 
     public void visitLoginPack(LoginPack loginPack){
         loginPack.setSenderLogin(login);
-        loginPack.setPublicKey(publicKey);
         connection.send(loginPack);
     }
 
-    public void visitMessage(Message message){
-        printMsg(message.getSenderLogin() + ": " + message.getMessage());
+    public void visitMessage(Message message) {
+        try {
+            printMsg(message.getSenderLogin() + ":\n"
+                    + "сообщение: " + message.getMessage() + "\n"
+                    + "ЭЦП: " + new String(message.getEcp(), "Cp280") + "\n");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        if(verifyEcp(message)){
+            printMsg("Подпись проверена. Сообщение отправил пользователь: " + message.getSenderLogin());
+        } else {
+            printMsg("Подпись не верна");
+        }
     }
 
+    public boolean verifyEcp(Message message){
+        Signature signature;
+        boolean verified = false;
+        try {
+            signature = Signature.getInstance("SHA1withRSA");
+            signature.initVerify(message.getPublicKey());
+            signature.update(message.getMessage().getBytes());
+            verified = signature.verify(message.getEcp());
+        } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
+            e.printStackTrace();
+        }
+        return verified;
+    }
 
     @Override
     public void onDisconnect(TCPConnection tcpConnection) {
-
+        printMsg("Соединение прервано.\n");
     }
 
     private synchronized void printMsg(String msg){

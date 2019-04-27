@@ -2,21 +2,20 @@ package com.blackvelvetsun.ds.server;
 
 import com.blackvelvetsun.ds.network.*;
 
+import javax.swing.*;
+import java.awt.*;
 import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
-import java.security.*;
-import java.util.ArrayList;
+import java.net.UnknownHostException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class TheServer implements TCPConnectionListener {
 
-    //private final List<User> users = new ArrayList<>();
     private static int id = 0;
     private final Map<Integer, TCPConnection> temp = new HashMap<>();
-    private final Map<String, User> users = new HashMap<>();
+    private final Map<String, TCPConnection> users = new HashMap<>();
 
     public static void main(String[] args) {
         new TheServer();
@@ -26,6 +25,7 @@ public class TheServer implements TCPConnectionListener {
         try(ServerSocket serverSocket = new ServerSocket(8180)){
             System.out.println("Сервер запущен...");
             System.out.println(InetAddress.getLocalHost());
+            drawFace();
             while(true) {
                 try {
                     new TCPConnection(this, serverSocket.accept());
@@ -38,6 +38,22 @@ public class TheServer implements TCPConnectionListener {
         }
     }
 
+    private void drawFace() throws UnknownHostException {
+        JFrame fr = new JFrame();
+        TextField ip = new TextField();
+
+        fr.setTitle("Сервер");
+        fr.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        fr.setSize(200,100);
+        fr.setLocationRelativeTo(null);
+        fr.setAlwaysOnTop(true);
+
+        ip.setText(InetAddress.getLocalHost().toString());
+        ip.setEditable(false);
+        fr.add(ip);
+        fr.setVisible(true);
+    }
+
     @Override
     public synchronized void onConnect(TCPConnection tcpConnection) {
         temp.put(id, tcpConnection);
@@ -48,37 +64,23 @@ public class TheServer implements TCPConnectionListener {
     }
 
     @Override
-    public synchronized void onReceiving(TCPConnection tcpConnection, Object pack) {
+    public synchronized void onReceiving(TCPConnection tcpConnection, Object pack){
         DeliveryPack newPack = (DeliveryPack) pack;
         newPack.accept(this);
     }
 
     public void visitLoginPack(LoginPack loginPack){
         TCPConnection connection = temp.remove(loginPack.getIdConnection());
-        User user = new User(connection, loginPack.getPublicKey());
-        users.put(loginPack.getSenderLogin(), user);
-        //мб трай кэч
-    }
-
-    public PublicKey selectPublicKey(String login){
-        return users.get(login).getPublicKey(); //!!!to be continued
+        users.put(loginPack.getSenderLogin(), connection);
     }
 
     public void visitMessage(Message message){
-        User receiver = users.get(message.getReceiverLogin());
-        User sender = users.get(message.getSenderLogin());
-        Signature signature = null;
-        try {
-            signature = Signature.getInstance("SHA1withRSA");
-            signature.initVerify(sender.getPublicKey());
-            signature.update(message.getMessage().getBytes());
-            boolean verified = signature.verify(message.getEcp());
-            System.out.println(verified);
-        } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException e) {
-            e.printStackTrace();
-        }
-        TCPConnection receiverConnection = receiver.getConnection();
-        receiverConnection.send(message);
+        send(message, message.getReceiverLogin());
+    }
+
+    public void send(DeliveryPack pack, String receiverLogin){
+        TCPConnection receiverConnection = users.get(receiverLogin);;
+        receiverConnection.send(pack);
     }
 
     @Override

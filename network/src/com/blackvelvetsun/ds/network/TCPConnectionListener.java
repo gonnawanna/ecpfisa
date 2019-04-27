@@ -1,7 +1,5 @@
 package com.blackvelvetsun.ds.network;
 
-import java.util.ArrayList;
-
 public interface TCPConnectionListener {
 
     void onConnect(TCPConnection tcpConnection);
@@ -9,5 +7,5 @@ public interface TCPConnectionListener {
     void onDisconnect(TCPConnection tcpConnection);
     void visitMessage(Message message);
     void visitLoginPack(LoginPack loginPack);
-    //void onException();
+
 }
